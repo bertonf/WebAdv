@@ -55,6 +55,7 @@ console.log(req.session.user);
 
 function requireLogin (req, res, next) {
 	console.log('requireLogin()');
+	next();
 	//console.log(req.user);
 /*  if (err || !req.user) {
   console.log('redirect');
@@ -88,7 +89,7 @@ var City = mongoose.model('CITY', CitySchema, 'CITY');
 
 app.get('/cities', function (req, res) {
 	console.log("app.get /cities");
-	requireLogin();
+	//requireLogin();
 	City.find({}, function(err, cities) {
 		
 		if( err || !cities) console.log("No cities found");
@@ -172,12 +173,13 @@ app.get('/logout', function(req, res) {
 });
 
 app.post('/register', function (req, res) {
-	var jsonData = JSON.parse(req.body.mydata),
-		userModel = db.model('user'),
-        newuser = new userModel();
+	console.log("app.post /register");
+	console.log(req.body.mydata);
+	var jsonData = JSON.parse(req.body.mydata);
+    var newuser = new User();
 
     newuser.name      = jsonData.user_name;
-    newuser.pwd        = jsonData.user_pwd;
+    newuser.pwd       = jsonData.user_pwd;
 
     newuser.save(function(err){
         if(err){ throw err; }
@@ -237,15 +239,17 @@ app.get('/searchtrip', function (req, res) {
 });
 
 app.post('/createtrip', function (req, res) {
-	var formContents = req.body.formContents,
+	console.log("app.get /createtrip");
+	console.log(req.body.mydata);
+	var data = JSON.parse(req.body.mydata);
     newTrip = new Trip();
 
-	newTrip.trip_owner = formContents.id;
-	newTrip.trip_start = formContents.id;
-	newTrip.trip_end = formContents.id;
-	newTrip.trip_date = new Date(formContents.strdate);
+	newTrip.trip_owner = data.iduser;
+	newTrip.trip_start = data.idcitystart;
+	newTrip.trip_end = data.idcityend;
+	newTrip.trip_date = new Date(data.date);
 	newTrip.nb = 0;
-	newTrip.nb_max = formContents.nb;
+	newTrip.nb_max = data.nb;
 	
 	newTrip.save(function(err){
         if(err){ throw err; }
@@ -261,16 +265,34 @@ var teamTripSchema = mongoose.Schema({
 var TeamTrip = mongoose.model('TEAMTRIP', tripSchema, 'TEAMTRIP');
 
 app.post('/jointrip', requireLogin, function (req, res) {
-	var data = req.body.formContents,
+	console.log("app.get /jointrip");
+	//var data = req.body.mydata,
+	console.log(req.body.mydata);
+	var jsonData = JSON.parse(req.body.mydata);
     newTeamTrip = new TeamTrip();
 
-	newTeamTrip.trip = data.tripid;
-	newTeamTrip.trip_pa = data.userid;
+	newTeamTrip.trip = jsonData.tripid;
+	newTeamTrip.trip_pa = jsonData.userid;
 	
 	newTeamTrip.save(function(err){
         if(err){ throw err; }
         console.log('saved');
     })
+	
+	//Trip.update({_id:jsonData.tripid}, {$inc:{nb:1}});
+	//Trip.findOne({_id:jsonData.tripid}, function(err, doc){
+	Trip.findById(jsonData.tripid)
+	.$where('this.nb < this.nb_max')
+	.exec(function(err, doc){
+		if (err || !doc)
+			console.log("No trips found");
+		else {
+			doc.nb = parseInt(doc.nb) + 1;
+			doc.save();
+			console.log("success : nb pa inc");
+		}
+	});
+	
 	res.send('TeamTrip saved');
 });
 
